@@ -33,7 +33,7 @@ export const Title = (props: TitleProps) => {
       }}
     >
       <Stack gap={2} sx={{ width: '100%' }}>
-        <MediaTitleDisplayer dynamicSize media={item.media} />
+        <MediaTitleDisplayer dynamicSize item={item} />
 
         {isAnilistMedia(item.media) &&
         (item.media.seasonYear || item.media.season) ? (

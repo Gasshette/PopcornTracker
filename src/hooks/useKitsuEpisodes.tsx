@@ -1,21 +1,20 @@
 import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
+import Fuse from 'fuse.js';
 import { AnilistMedia } from '../types/Anilist';
 import { DEBUGS } from '../const';
 import { KitsuAnime, KitsuEpisode } from '../types/Kitsu';
 import { kitsuApi, PAGE_LIMIT } from '../api/kitsuApi';
 import { kitsuQueryKeys } from '../queryKeys/kitsuQueryKeys';
 
-// ============================================================================
-// Types
-// ============================================================================
-
 interface KitsuMatchResult {
+  bestMatch: KitsuAnime;
   kitsuId: string;
   episodeDuration: number | null;
   posterImage: KitsuAnime['attributes']['posterImage'];
 }
 
 interface UseKitsuEpisodesResult {
+  anime: KitsuAnime | undefined;
   episodes: KitsuEpisode[];
   loading: boolean;
   error: Error | null;
@@ -26,125 +25,106 @@ interface UseKitsuEpisodesResult {
   fetchNextPage: () => void;
 }
 
-// ============================================================================
-// Constants
-// ============================================================================
+const RATE_LIMIT_DELAY = 400;
 
-const RATE_LIMIT_DELAY = 400; // Kitsu has generous rate limits
-
-// ============================================================================
-// API Functions
-// ============================================================================
-
-// ============================================================================
-// Matching Algorithm
-// ============================================================================
-
-function calculateMatchScore(
-  anilistMedia: AnilistMedia,
-  kitsuAnime: KitsuAnime
-): number {
-  const normalize = (s: string) => s.toLowerCase().replace(/\s+/g, '');
-  let score = 0;
-
-  DEBUGS.KITSU && console.group(`-----DEBUG KITSU (${kitsuAnime.id})-----`);
-  const scoreRepartition: Record<string, any> = {};
-
-  // Build title sets
-  const anilistTitles = [
-    anilistMedia.title.native,
-    anilistMedia.title.romaji,
-    anilistMedia.title.english,
-  ]
-    .filter((title): title is string => Boolean(title))
-    .map((t) => normalize(t));
-
-  const kitsuTitles = [
-    kitsuAnime.attributes.canonicalTitle,
-    kitsuAnime.attributes.titles.en,
-    kitsuAnime.attributes.titles.en_jp,
-    ...kitsuAnime.attributes.abbreviatedTitles,
-  ]
-    .filter((title): title is string => Boolean(title))
-    .map((t) => normalize(t));
-
-  // Title matching: best match only
-  let bestTitleScore = 0;
-  for (const aTitle of anilistTitles) {
-    for (const kTitle of kitsuTitles) {
-      if (aTitle === kTitle) {
-        bestTitleScore = Math.max(bestTitleScore, 50);
-        scoreRepartition['titleExact'] = 50;
-      } else if (aTitle.includes(kTitle) || kTitle.includes(aTitle)) {
-        bestTitleScore = Math.max(bestTitleScore, 30);
-        scoreRepartition['titlePartial'] = 30;
-      }
-    }
-  }
-  score += bestTitleScore;
-
-  // Year matching
-  if (kitsuAnime.attributes.startDate) {
-    const kitsuYear = new Date(kitsuAnime.attributes.startDate).getFullYear();
-    const yearDiff = Math.abs(kitsuYear - anilistMedia.seasonYear);
-
-    DEBUGS.KITSU && console.log('[DEBUG] Years, diff:', kitsuYear, yearDiff);
-    if (yearDiff === 0) {
-      score += 20;
-      scoreRepartition['startDate'] = 20;
-    } else if (yearDiff === 1) {
-      score += 10;
-      scoreRepartition['startDate'] = 10;
-    }
-  }
-
-  // Episode count matching
-  if (kitsuAnime.attributes.episodeCount && anilistMedia.episodes) {
-    const episodeDiff = Math.abs(
-      kitsuAnime.attributes.episodeCount - anilistMedia.episodes
-    );
-    const tolerance = anilistMedia.episodes * 0.1;
-
-    DEBUGS.KITSU && console.log('[DEBUG] Episode diff', episodeDiff);
-    if (episodeDiff === 0) {
-      score += 20;
-      scoreRepartition['episodeCount'] = 20;
-    } else if (episodeDiff <= tolerance) {
-      score += 10;
-      scoreRepartition['episodeCount'] = 10;
-    }
-  }
-
-  DEBUGS.KITSU && console.log('[DEBUG] Score repartition:', scoreRepartition);
-  DEBUGS.KITSU && console.log('[DEBUG] Total score', score);
-  DEBUGS.KITSU && console.groupEnd();
-
-  return score;
+interface FindBestMatchResult {
+  bestMatch: KitsuAnime | null;
+  score: number;
 }
 
 function findBestMatch(
   anilistMedia: AnilistMedia,
   kitsuResults: KitsuAnime[]
-): KitsuAnime | null {
-  const MIN_SCORE_THRESHOLD = 40;
+): FindBestMatchResult {
+  const MIN_SCORE_THRESHOLD = 0.215;
+
+  const titlesToSearch = [
+    anilistMedia.title.english,
+    anilistMedia.title.romaji,
+    anilistMedia.title.native,
+  ].filter(Boolean);
 
   let bestMatch: KitsuAnime | null = null;
-  let highestScore = 0;
+  let bestScore = 1;
 
-  for (const result of kitsuResults) {
-    const score = calculateMatchScore(anilistMedia, result);
-    if (score > highestScore) {
-      highestScore = score;
-      bestMatch = result;
+  for (const anime of kitsuResults) {
+    const animeAllTitles = [
+      anime.attributes.canonicalTitle,
+      anime.attributes.titles.en,
+      anime.attributes.titles.en_jp,
+      ...anime.attributes.abbreviatedTitles,
+    ].filter(Boolean);
+
+    const fuse = new Fuse(animeAllTitles, {
+      threshold: 1.0,
+      includeScore: true,
+      ignoreLocation: true,
+      distance: 100,
+    });
+
+    let bestTitleScore = 1;
+    for (const searchTitle of titlesToSearch) {
+      const results = fuse.search(searchTitle);
+      if (results.length > 0 && results[0].score !== undefined) {
+        bestTitleScore = Math.min(bestTitleScore, results[0].score);
+      }
+    }
+
+    let bonusScore = 0;
+
+    if (anime.attributes.startDate) {
+      const kitsuYear = new Date(anime.attributes.startDate).getFullYear();
+      const yearDiff = Math.abs(kitsuYear - anilistMedia.seasonYear);
+
+      if (yearDiff === 0) {
+        bonusScore += 0.15;
+      } else if (yearDiff === 1) {
+        bonusScore += 0.08;
+      }
+    }
+
+    if (anime.attributes.episodeCount && anilistMedia.episodes) {
+      const episodeDiff = Math.abs(
+        anime.attributes.episodeCount - anilistMedia.episodes
+      );
+      const tolerance = anilistMedia.episodes * 0.1;
+
+      if (episodeDiff === 0) {
+        bonusScore += 0.12;
+      } else if (episodeDiff <= tolerance) {
+        bonusScore += 0.06;
+      }
+    }
+
+    const finalScore = Math.max(0, bestTitleScore - bonusScore);
+
+    DEBUGS.KITSU &&
+      console.log(`[DEBUG] Candidate (Kitsu ID: ${anime.id}):`, {
+        title: anime.attributes.canonicalTitle,
+        titleScore: bestTitleScore.toFixed(3),
+        bonusScore: bonusScore.toFixed(3),
+        finalScore: finalScore.toFixed(3),
+        year: anime.attributes.startDate
+          ? new Date(anime.attributes.startDate).getFullYear()
+          : null,
+        episodes: anime.attributes.episodeCount,
+        passesThreshold: finalScore < MIN_SCORE_THRESHOLD,
+      });
+
+    if (finalScore < MIN_SCORE_THRESHOLD && finalScore < bestScore) {
+      bestScore = finalScore;
+      bestMatch = anime;
     }
   }
 
-  return highestScore >= MIN_SCORE_THRESHOLD ? bestMatch : null;
-}
+  DEBUGS.KITSU &&
+    console.warn(
+      `[DEBUG] Best match overall (Score=${bestScore.toFixed(3)}):`,
+      bestMatch
+    );
 
-// ============================================================================
-// Query Functions
-// ============================================================================
+  return { bestMatch, score: bestScore };
+}
 
 async function findKitsuMatch(
   media: AnilistMedia
@@ -162,17 +142,19 @@ async function findKitsuMatch(
       continue;
     }
 
-    const bestMatch = findBestMatch(media, searchResults);
+    const { bestMatch } = findBestMatch(media, searchResults);
 
     if (bestMatch) {
-      DEBUGS.KITSU && console.warn('[DEBUG] Best match found:', bestMatch);
       return {
+        bestMatch,
         kitsuId: bestMatch.id,
         episodeDuration: bestMatch.attributes.episodeLength ?? null,
         posterImage: bestMatch.attributes.posterImage,
       };
     }
   }
+
+  DEBUGS.KITSU && console.warn('[DEBUG] No best match found');
 
   return null;
 }
@@ -256,6 +238,7 @@ export function useKitsuEpisodes(
     episodesQuery.data?.pages.flatMap((page) => page.data) ?? [];
 
   return {
+    anime: matchQuery.data?.bestMatch,
     episodes: allEpisodes,
     loading: matchQuery.isLoading || episodesQuery.isLoading,
     error: matchQuery.error || episodesQuery.error,

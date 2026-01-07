@@ -10,10 +10,12 @@ export interface PageInfo {
 
 export interface AnilistMedia {
   id: number;
+  idMal?: number;
   title: {
     romaji: string;
     english: string;
     native: string;
+    userPreferred: string;
   };
   description: string;
   coverImage: {
@@ -53,10 +55,6 @@ export interface AnilistPaginatedResponse {
       pageInfo: PageInfo;
     };
   };
-}
-
-export interface AnilistMultipleResponse {
-  data: Record<string, AnilistMedia>;
 }
 
 export interface AnilistUniqueResponse {

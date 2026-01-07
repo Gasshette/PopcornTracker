@@ -16,8 +16,8 @@ import isEqual from 'lodash.isequal';
 import { PopcornSignals } from '../PopcornSignals';
 import { useParams } from 'react-router-dom';
 import { useDocument } from '../hooks/useDocument';
-import { CircularProgress } from '@mui/material';
 import { AppMessage } from '../components/AppMessage';
+import { BigLoader } from '../components/BigLoader';
 
 interface ItemsContextProps {
   items: Array<Item>;
@@ -267,7 +267,7 @@ export const ItemsProvider = (props: ItemsProviderProps) => {
   if (!items || isLoading)
     return (
       <AppMessage>
-        <CircularProgress size="4rem" />
+        <BigLoader />
       </AppMessage>
     );
 

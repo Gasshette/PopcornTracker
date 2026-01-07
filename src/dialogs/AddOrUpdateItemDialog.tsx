@@ -154,9 +154,7 @@ export const AddOrUpdateItemDialog = () => {
       }}
     >
       <FormProvider {...methods}>
-        <DialogTitle>
-          {item ? displayTitle(item.media) : 'Item creation'}
-        </DialogTitle>
+        <DialogTitle>{item ? displayTitle(item) : 'Item creation'}</DialogTitle>
         <DialogContent>
           <Stack
             sx={(theme) => ({

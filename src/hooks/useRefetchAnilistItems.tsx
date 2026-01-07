@@ -4,16 +4,14 @@ import { AnilistMedia } from '../types/Anilist';
 import { Item } from '../types/Item';
 import { itemsQueryKeys } from '../queryKeys/itemsQueryKeys';
 
-async function refetchAnilistItems(items: Array<Item>): Promise<Array<Item>> {
+async function refetchAnilistItems(
+  items: Array<Item>
+): Promise<{ newItems: Array<Item>; invalidIds: Array<number> }> {
   const newItems = structuredClone(items);
 
-  const response = await AnilistApi.getMedias(newItems.map((i) => i.media!.id));
-
-  if (!response?.data) {
-    throw new Error('AniList returned no data');
-  }
-
-  const medias = Object.values(response.data);
+  const { media: medias, invalidIds } = await AnilistApi.getMedias(
+    newItems.map((i) => i.media!.id)
+  );
 
   const mediaById = new Map<number, AnilistMedia>();
   for (const media of medias) {
@@ -30,7 +28,7 @@ async function refetchAnilistItems(items: Array<Item>): Promise<Array<Item>> {
     }
   });
 
-  return newItems;
+  return { newItems, invalidIds };
 }
 
 export const useRefetchAnilistItems = (
@@ -41,5 +39,6 @@ export const useRefetchAnilistItems = (
     queryKey: itemsQueryKeys.refetchAnilistItems(items.map((i) => i.media!.id)),
     queryFn: () => refetchAnilistItems(items),
     enabled,
+    retry: 0,
   });
 };

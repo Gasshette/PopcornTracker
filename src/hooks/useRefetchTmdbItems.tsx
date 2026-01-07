@@ -3,6 +3,7 @@ import { Item } from '../types/Item';
 import { itemsQueryKeys } from '../queryKeys/itemsQueryKeys';
 import { TmdbApi } from '../api/TmdbApi';
 import { TmdbMedia } from '../types/Tmdb';
+import { getTmdbMediaType } from '../utils';
 
 export async function refetchTmdbItems(items: Array<Item>) {
   const newItems = structuredClone(items);
@@ -11,7 +12,8 @@ export async function refetchTmdbItems(items: Array<Item>) {
   const failedItems = [];
 
   for (const item of newItems) {
-    const { id, media_type: type } = item.media! as TmdbMedia;
+    const { id } = item.media as TmdbMedia;
+    const type = getTmdbMediaType(item);
     try {
       const media = await TmdbApi.getMediaById({ id, type });
 
@@ -35,7 +37,7 @@ export async function refetchTmdbItems(items: Array<Item>) {
   newItems.forEach((item) => {
     const updated = mediaById.get(item.media!.id);
     if (updated) {
-      item.media = { ...item.media, ...updated }; // prevent losing data: api call doesn't return media_type for example
+      item.media = { ...item.media, ...updated };
       item.lastUpdated = Date.now();
     }
   });
@@ -48,5 +50,6 @@ export const useRefetchTmdbItems = (items: Array<Item>, enabled: boolean) => {
     queryKey: itemsQueryKeys.refetchTmdbItems(items.map((i) => i.media!.id)),
     queryFn: () => refetchTmdbItems(items),
     enabled,
+    retry: 0,
   });
 };

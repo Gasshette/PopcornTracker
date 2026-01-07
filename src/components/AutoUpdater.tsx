@@ -1,4 +1,4 @@
-import { CircularProgress } from '@mui/material';
+import { Stack, Typography } from '@mui/material';
 import dayjs from 'dayjs';
 import { ReactNode, useEffect, useMemo } from 'react';
 import {
@@ -11,6 +11,7 @@ import { useRefetchTmdbItems } from '../hooks/useRefetchTmdbItems';
 import { Item } from '../types/Item';
 import { isAnilistMedia } from '../utils';
 import { AppMessage } from './AppMessage';
+import { SyncIcon } from './SyncIcon';
 
 interface AutoUpdaterProps {
   children: ReactNode;
@@ -21,7 +22,7 @@ const SLICE_SIZE = 10;
 const cutoff = dayjs().subtract(TWO_WEEKS, 'day').valueOf();
 
 interface RefetchState {
-  refetchTimestamp: number;
+  refetchdate: string;
   errors: {
     anilist: unknown;
     tmdb: unknown;
@@ -64,7 +65,10 @@ export const AutoUpdater = (props: AutoUpdaterProps) => {
   }, [items]);
 
   const {
-    data: anilistData,
+    data: { newItems: anilistData, invalidIds: invalidAnilistIds } = {
+      newItems: [],
+      invalidIds: [],
+    },
     isLoading: isAnilistLoading,
     error: anilistError,
   } = useRefetchAnilistItems(anilistItems, canRefetch);
@@ -77,13 +81,23 @@ export const AutoUpdater = (props: AutoUpdaterProps) => {
   if (isAnilistLoading || isTmdbLoading) {
     return (
       <AppMessage>
-        <CircularProgress size="4rem" />
+        <Stack
+          sx={{
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 5,
+          }}
+        >
+          <Typography variant="h4">Auto updating &#128524;</Typography>
+          <SyncIcon sx={{ fontSize: 50 }} />
+        </Stack>
       </AppMessage>
     );
   }
 
   if (
     anilistError ||
+    invalidAnilistIds.length > 0 ||
     tmdbError ||
     (tmdbData && tmdbData.failedItems.length > 0)
   ) {
@@ -105,9 +119,9 @@ export const AutoUpdater = (props: AutoUpdaterProps) => {
       tmdbErrorState.push(tmdbData.failedItems);
     }
     const newState: RefetchState = {
-      refetchTimestamp: Date.now(),
+      refetchdate: dayjs().format('YYYY-MM-DD'),
       errors: {
-        anilist: anilistError,
+        anilist: { anilistError, invalidAnilistIds },
         tmdb: tmdbErrorState,
       },
     };
@@ -159,7 +173,6 @@ const Updater = (props: UpdaterProps) => {
       }
     });
 
-    // Small security, we don't want to lose anything
     if (newItems.length === items.length) {
       localStorage.setItem(
         POPCORN_TRACKER_LAST_REFETCH_TIMESTAMP_KEY,

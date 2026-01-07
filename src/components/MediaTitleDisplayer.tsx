@@ -6,13 +6,12 @@ import {
   useMediaQuery,
   useTheme,
 } from '@mui/material';
-import { AnilistMedia } from '../types/Anilist';
-import { TmdbMedia } from '../types/Tmdb';
 import { getTitles } from '../utils';
 import { useEffect, useRef, useState } from 'react';
+import { Item } from '../types/Item';
 
 interface MediaTitleDisplayerProps {
-  media: AnilistMedia | TmdbMedia;
+  item: Item;
   sx?: SxProps;
   dynamicSize?: boolean;
   size?: 'small' | 'medium' | 'large';
@@ -20,7 +19,7 @@ interface MediaTitleDisplayerProps {
 }
 
 const MediaTitleDisplayer = (props: MediaTitleDisplayerProps) => {
-  const { media, sx, size = 'small', dynamicSize = false } = props;
+  const { item, sx, size = 'small', dynamicSize = false } = props;
 
   const [width, setWidth] = useState<number>();
 
@@ -43,11 +42,11 @@ const MediaTitleDisplayer = (props: MediaTitleDisplayerProps) => {
     setSize();
   }, []);
 
-  if (!media) {
+  if (!item.media) {
     return null;
   }
 
-  const { mainTitle, secondaryTitle } = getTitles(media);
+  const { mainTitle, secondaryTitle } = getTitles(item);
 
   return (
     <Stack

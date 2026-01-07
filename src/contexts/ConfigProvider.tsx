@@ -14,8 +14,8 @@ import { PopcornTrackerDocument } from '../types/Document';
 import isEqual from 'lodash.isequal';
 import { useParams } from 'react-router-dom';
 import { useDocument } from '../hooks/useDocument';
-import { CircularProgress } from '@mui/material';
 import { AppMessage } from '../components/AppMessage';
+import { BigLoader } from '../components/BigLoader';
 
 function initConfig(): Config {
   const storedDocument = localStorage.getItem(POPCORN_TRACKER_DOCUMENT_KEY);
@@ -102,7 +102,7 @@ export const ConfigProvider = (props: ConfigProviderProps) => {
   if (!config || isLoading)
     return (
       <AppMessage>
-        <CircularProgress size="4rem" />
+        <BigLoader />
       </AppMessage>
     );
 

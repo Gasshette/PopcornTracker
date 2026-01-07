@@ -160,7 +160,7 @@ const ListItem = (props: Itemprops) => {
                 ? item.media.coverImage.large
                 : getTmdbImagePath(item.media.poster_path)
             }
-            alt={displayTitle(item.media)}
+            alt={displayTitle(item)}
           />
           <CardContent
             sx={{
@@ -220,7 +220,7 @@ const ListItem = (props: Itemprops) => {
                   />
                 </Box>
                 <Box sx={{ pt: 1 }}>
-                  <MediaTitleDisplayer media={item.media} size="medium" />
+                  <MediaTitleDisplayer item={item} size="medium" />
                 </Box>
               </Box>
 

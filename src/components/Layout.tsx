@@ -13,6 +13,7 @@ import { WorkerProvider } from '../contexts/WorkerProvider';
 import SyncWorker from '../workers/SyncWorker.ts?worker';
 import { scrollYKey } from '../const';
 import { AutoUpdater } from './AutoUpdater';
+import { EpisodePagesProvider } from '../contexts/EpisodePagesProvider';
 
 const theme = createTheme({
   zIndex: {
@@ -22,6 +23,11 @@ const theme = createTheme({
     mode: 'dark',
   },
   components: {
+    MuiTooltip: {
+      defaultProps: {
+        enterDelay: 500,
+      },
+    },
     MuiTextField: {
       defaultProps: {
         variant: 'filled',
@@ -74,7 +80,9 @@ export const Layout = () => {
                 <ConfigProvider>
                   <DialogsProvider>
                     <HeaderMenu />
-                    <Outlet />
+                    <EpisodePagesProvider>
+                      <Outlet />
+                    </EpisodePagesProvider>
                     <AddOrUpdateItemDialog />
                     <ConfigDialog />
                     <ShareDialog />

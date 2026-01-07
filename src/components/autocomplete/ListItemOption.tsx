@@ -58,7 +58,7 @@ export const ListItemOption = (props: ListItemOptionProps) => {
                 ? item.media.coverImage.large
                 : getTmdbImagePath(item.media.poster_path)
             }
-            alt={displayTitle(item.media)}
+            alt={displayTitle(item)}
           />
           <CardContent
             sx={{
@@ -100,7 +100,7 @@ export const ListItemOption = (props: ListItemOptionProps) => {
                   />
                 </Box>
                 <Box sx={{ pt: 1 }}>
-                  <MediaTitleDisplayer media={item.media} size="medium" />
+                  <MediaTitleDisplayer item={item} size="medium" />
                 </Box>
               </Box>
               {!isAnilistMedia(item.media) && item.media.release_date && (

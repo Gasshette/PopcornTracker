@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Item } from '../types/Item';
+import { Category, Item } from '../types/Item';
 import { itemsQueryKeys } from '../queryKeys/itemsQueryKeys';
 import { isAnilistMedia } from '../utils';
 import { AnilistApi } from '../api/AnilistApi';
@@ -17,7 +17,7 @@ async function fetchMedia(
 
   return await TmdbApi.getMediaById({
     id: item.media!.id,
-    type: item.media!.media_type,
+    type: item.category === Category.Movie ? item.category.toLowerCase() : 'tv',
   });
 }
 

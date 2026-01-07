@@ -13,8 +13,6 @@ export interface TmdbMedia {
   genres: Array<TmdbGenre>; // contains genres matching the genre_ids above
   adult: boolean;
   original_language: string;
-
-  media_type: string;
   popularity: number;
   vote_count: number;
   first_air_date: string;

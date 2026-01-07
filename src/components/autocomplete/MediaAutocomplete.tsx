@@ -8,7 +8,13 @@ import {
 import React, { useEffect } from 'react';
 import debounce from 'lodash.debounce';
 import { Category, Item, Status } from '../../types/Item';
-import { debounceFunc, displayTitle, isAnilistMedia } from '../../utils';
+import {
+  debounceFunc,
+  displayTitle,
+  getEmptyItem,
+  getTmdbMediaTypeByCategory,
+  isAnilistMedia,
+} from '../../utils';
 import { AnilistMedia } from '../../types/Anilist';
 import { TmdbMedia } from '../../types/Tmdb';
 import { AnilistApi } from '../../api/AnilistApi';
@@ -95,7 +101,8 @@ const MediaAutocomplete = () => {
 
           setOptions(medias);
         } else {
-          const response = await TmdbApi.getMedia(searchValue);
+          const mediaType = getTmdbMediaTypeByCategory(Category[category]);
+          const response = await TmdbApi.getMedia(searchValue, mediaType);
           setOptions(
             response.filter(
               (media) =>
@@ -140,7 +147,12 @@ const MediaAutocomplete = () => {
           options={options}
           noOptionsText="No results"
           value={value}
-          getOptionLabel={displayTitle}
+          getOptionLabel={(media) => {
+            const item = getEmptyItem(Category[getValues('category')]);
+            item.media = media;
+
+            return displayTitle(item);
+          }}
           filterOptions={(options, _) => options}
           isOptionEqualToValue={(option, value) => option.id === value.id}
           renderOption={(props, option) => {

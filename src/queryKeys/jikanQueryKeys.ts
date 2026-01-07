@@ -10,4 +10,5 @@ export const jikanQueryKeys = {
     'match',
     mediaId,
   ],
+  animeById: (malId: number | null) => [jikanQueryKeys.default(), malId],
 };

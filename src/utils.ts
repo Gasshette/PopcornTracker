@@ -22,6 +22,50 @@ import isEqual from 'lodash.isequal';
 import { TmdbMedia } from './types/Tmdb';
 import { CSSProperties } from 'react';
 
+export function getAnilistMediaType(item: Item) {
+  switch (item.category) {
+    case Category.Anime:
+      return 'anime';
+    case Category.Manga:
+      return 'manga';
+    default:
+      throw new Error('Bad category provided');
+  }
+}
+
+export function getTmdbMediaType(item: Item) {
+  switch (item.category) {
+    case Category.Movie:
+      return 'movie';
+    case Category.Serie:
+      return 'tv';
+    default:
+      throw new Error('Bad category provided');
+  }
+}
+
+export function getAnilistMediaTypeByCategory(category: Category) {
+  switch (category) {
+    case Category.Anime:
+      return 'anime';
+    case Category.Manga:
+      return 'manga';
+    default:
+      throw new Error('Bad category provided');
+  }
+}
+
+export function getTmdbMediaTypeByCategory(category: Category) {
+  switch (category) {
+    case Category.Movie:
+      return 'movie';
+    case Category.Serie:
+      return 'tv';
+    default:
+      throw new Error('Bad category provided');
+  }
+}
+
 export function getEmptyItem(category?: Category): Item {
   if (!category) {
     throw new Error('Invalid category: category cannot be undefined');
@@ -126,19 +170,31 @@ export const debounceFunc = debounce(
   500
 );
 
-export const displayTitle = (media: AnilistMedia | TmdbMedia | null) => {
+export const displayTitle = (item: Item) => {
+  const media = item.media;
+
   if (!media) throw new Error('media is required');
 
   if (isAnilistMedia(media)) {
     return media.title.romaji ?? media.title.english ?? media.title.native;
   } else {
-    return media.media_type === 'movie' ? media.title : media.name;
+    const mediaType = getTmdbMediaType(item);
+    return mediaType === 'movie' ? media.title : media.name;
   }
 };
 
-export const getTitles = (media: AnilistMedia | TmdbMedia) => {
+export const getTitles = (item: Item) => {
   let mainTitle: string;
   let secondaryTitle: string;
+
+  const media = item.media;
+
+  if (!media) {
+    return {
+      mainTitle: '',
+      secondaryTitle: '',
+    };
+  }
 
   if (isAnilistMedia(media)) {
     mainTitle = media.title.romaji ?? '';
@@ -146,7 +202,8 @@ export const getTitles = (media: AnilistMedia | TmdbMedia) => {
     media.title.english && media.title.native && (secondaryTitle += ' | ');
     secondaryTitle += media.title.native;
   } else {
-    mainTitle = media.media_type === 'tv' ? media.name : media.title;
+    const mediaType = getTmdbMediaType(item);
+    mainTitle = mediaType === 'tv' ? media.name : media.title;
     secondaryTitle = media.original_name ?? media.original_title;
   }
 

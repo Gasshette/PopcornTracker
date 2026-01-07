@@ -46,26 +46,7 @@ export const Home = () => {
 
   return (
     <>
-      {import.meta.env.DEV && (
-        <Box sx={{ mt: 14 }}>
-          <Todo />
-          <Stack
-            sx={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 2,
-            }}
-          >
-            <Button
-              variant="contained"
-              onClick={migrateDefaultConfigColors}
-              disabled
-            >
-              Migrate colors
-            </Button>
-          </Stack>
-        </Box>
-      )}
+      {import.meta.env.DEV && <DebugTools />}
 
       <Box
         sx={{
@@ -77,5 +58,28 @@ export const Home = () => {
         <VirtualizedList />
       </Box>
     </>
+  );
+};
+
+const DebugTools = () => {
+  return (
+    <Box sx={{ mt: 14 }}>
+      <Todo />
+      <Stack
+        sx={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 2,
+        }}
+      >
+        <Button
+          variant="contained"
+          onClick={migrateDefaultConfigColors}
+          disabled
+        >
+          Migrate colors
+        </Button>
+      </Stack>
+    </Box>
   );
 };

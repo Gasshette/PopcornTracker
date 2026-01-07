@@ -9,7 +9,7 @@ const JIKAN_BASE_URL = 'https://api.jikan.moe/v4';
 export const jikanApi = {
   searchAnime: async (title: string): Promise<JikanAnime[]> => {
     const response = await fetch(
-      `${JIKAN_BASE_URL}/anime?q=${encodeURIComponent(title)}&limit=10`
+      `${JIKAN_BASE_URL}/anime?q=${encodeURIComponent(title)}&limit=20`
     );
 
     if (!response.ok) {
@@ -19,6 +19,15 @@ export const jikanApi = {
     const data: JikanSearchResponse = await response.json();
 
     return data.data;
+  },
+  fetchById: async (
+    malId: number,
+    type: 'anime' | 'manga'
+  ): Promise<JikanAnime> => {
+    const response = await fetch(`${JIKAN_BASE_URL}/${type}/${malId}`);
+    if (!response.ok) throw new Error('Failed to fetch anime');
+    const json = await response.json();
+    return json.data;
   },
   fetchEpisodesPage: async (
     malId: number,

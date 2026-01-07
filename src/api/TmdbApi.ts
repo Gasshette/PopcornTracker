@@ -52,8 +52,11 @@ export class TmdbApi extends PopcornTrackerApi {
     }
   }
 
-  static async getMedia(mediaName: string): Promise<Array<TmdbMedia>> {
-    const url = `${POPCORN_TRACKER_TMDB_API_URL}/search/multi?query=${mediaName}&api_key=${TMDB_APIKEY}`;
+  static async getMedia(
+    mediaName: string,
+    mediaType: 'movie' | 'tv'
+  ): Promise<Array<TmdbMedia>> {
+    const url = `${POPCORN_TRACKER_TMDB_API_URL}/search/${mediaType}?query=${mediaName}&api_key=${TMDB_APIKEY}`;
 
     try {
       const response = await fetch(url, {

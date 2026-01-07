@@ -10,7 +10,7 @@ export const PAGE_LIMIT = 20; // Kitsu's default page limit
 export const kitsuApi = {
   searchAnime: async (title: string): Promise<Array<KitsuAnime>> => {
     const response = await fetch(
-      `${KITSU_BASE_URL}/anime?filter[text]=${encodeURIComponent(title)}&page[limit]=10`
+      `${KITSU_BASE_URL}/anime?filter[text]=${encodeURIComponent(title)}&page[limit]=20`
     );
 
     if (!response.ok) {

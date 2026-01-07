@@ -15,10 +15,12 @@ export const pageInfos = `{
  */
 export const getAnilistMedia = (isFull?: boolean) => `{
   id
+  idMal
   title {
     romaji
     english
     native
+    userPreferred
   }
   bannerImage
   averageScore

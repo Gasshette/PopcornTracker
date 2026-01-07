@@ -1,12 +1,9 @@
 import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
+import Fuse from 'fuse.js';
 import { AnilistMedia } from '../types/Anilist';
 import { DEBUGS } from '../const';
 import { jikanQueryKeys } from '../queryKeys/jikanQueryKeys';
 import { jikanApi } from '../api/JikanApi';
-
-// ============================================================================
-// Types
-// ============================================================================
 
 export interface JikanEpisode {
   mal_id: number;
@@ -34,11 +31,13 @@ interface JikanAnime {
 }
 
 interface JikanMatchResult {
+  anime: JikanAnime;
   malId: number;
   episodeDuration: number | null;
 }
 
 interface UseJikanEpisodesResult {
+  anime: JikanAnime | undefined;
   episodes: JikanEpisode[];
   loading: boolean;
   error: Error | null;
@@ -49,15 +48,7 @@ interface UseJikanEpisodesResult {
   fetchNextPage: () => void;
 }
 
-// ============================================================================
-// Constants
-// ============================================================================
-
 const RATE_LIMIT_DELAY = 350; // ms between requests
-
-// ============================================================================
-// Utility Functions
-// ============================================================================
 
 function parseDurationToSeconds(durationString: string | null): number | null {
   if (!durationString) return null;
@@ -77,24 +68,97 @@ function parseDurationToSeconds(durationString: string | null): number | null {
   return totalSeconds > 0 ? totalSeconds : null;
 }
 
+interface FindBestMatchResult {
+  bestMatch: JikanAnime | null;
+  score: number;
+}
+
 function findBestMatch(
   anilistMedia: AnilistMedia,
   jikanResults: JikanAnime[]
-): JikanAnime | null {
-  const MIN_SCORE_THRESHOLD = 40;
+): FindBestMatchResult {
+  const MIN_SCORE_THRESHOLD = 0.1;
+
+  const titlesToSearch = [
+    anilistMedia.title.english,
+    anilistMedia.title.romaji,
+    anilistMedia.title.native,
+  ].filter(Boolean);
 
   let bestMatch: JikanAnime | null = null;
-  let highestScore = 0;
+  let bestScore = 1;
 
-  for (const result of jikanResults) {
-    const score = calculateMatchScore(anilistMedia, result);
-    if (score > highestScore) {
-      highestScore = score;
-      bestMatch = result;
+  for (const anime of jikanResults) {
+    const animeAllTitles = [
+      anime.title,
+      anime.title_english,
+      anime.title_japanese,
+      ...anime.titles.map((t) => t.title),
+      ...anime.title_synonyms,
+    ].filter(Boolean);
+
+    const fuse = new Fuse(animeAllTitles, {
+      threshold: 1.0,
+      includeScore: true,
+      ignoreLocation: true,
+      distance: 100,
+    });
+
+    let bestTitleScore = 1;
+    for (const searchTitle of titlesToSearch) {
+      const results = fuse.search(searchTitle);
+      if (results.length > 0 && results[0].score !== undefined) {
+        bestTitleScore = Math.min(bestTitleScore, results[0].score);
+      }
+    }
+
+    let bonusScore = 0;
+
+    if (anime.year && anilistMedia.seasonYear) {
+      const yearDiff = Math.abs(anime.year - anilistMedia.seasonYear);
+      if (yearDiff === 0) {
+        bonusScore += 0.15;
+      } else if (yearDiff === 1) {
+        bonusScore += 0.08;
+      }
+    }
+
+    if (anime.episodes && anilistMedia.episodes) {
+      const episodeDiff = Math.abs(anime.episodes - anilistMedia.episodes);
+      const tolerance = anilistMedia.episodes * 0.1;
+      if (episodeDiff === 0) {
+        bonusScore += 0.12;
+      } else if (episodeDiff <= tolerance) {
+        bonusScore += 0.06;
+      }
+    }
+
+    const finalScore = Math.max(0, bestTitleScore - bonusScore);
+
+    DEBUGS.JIKAN &&
+      console.log(`[DEBUG] Candidate (MAL ID: ${anime.mal_id}):`, {
+        title: anime.title,
+        titleScore: bestTitleScore.toFixed(3),
+        bonusScore: bonusScore.toFixed(3),
+        finalScore: finalScore.toFixed(3),
+        year: anime.year,
+        episodes: anime.episodes,
+        passesThreshold: finalScore < MIN_SCORE_THRESHOLD,
+      });
+
+    if (finalScore < MIN_SCORE_THRESHOLD && finalScore < bestScore) {
+      bestScore = finalScore;
+      bestMatch = anime;
     }
   }
 
-  return highestScore >= MIN_SCORE_THRESHOLD ? bestMatch : null;
+  DEBUGS.JIKAN &&
+    console.warn(
+      `[DEBUG] Best match overall (Score=${bestScore.toFixed(3)}):`,
+      bestMatch
+    );
+
+  return { bestMatch, score: bestScore };
 }
 
 async function findJikanMatch(
@@ -113,104 +177,45 @@ async function findJikanMatch(
       continue;
     }
 
-    const bestMatch = findBestMatch(media, searchResults);
+    const { bestMatch } = findBestMatch(media, searchResults);
 
     if (bestMatch) {
-      DEBUGS.JIKAN && console.warn('[DEBUG] Best match found:', bestMatch);
       return {
+        anime: bestMatch,
         malId: bestMatch.mal_id,
         episodeDuration: parseDurationToSeconds(bestMatch.duration),
       };
     }
   }
 
+  DEBUGS.JIKAN && console.warn('[DEBUG] No best match found');
+
   return null;
 }
-function calculateMatchScore(
-  anilistMedia: AnilistMedia,
-  jikanAnime: JikanAnime
-): number {
-  const normalize = (s: string) => s.toLowerCase().replace(/\s+/g, '');
-  let score = 0;
-
-  DEBUGS.JIKAN && console.group(`-----DEBUG JIKAN (${jikanAnime.mal_id})-----`);
-  const scoreRepartition: Record<string, any> = {};
-
-  // Build title sets
-  const anilistTitles = [
-    anilistMedia.title.romaji,
-    anilistMedia.title.english,
-    anilistMedia.title.native,
-  ]
-    .filter((t): t is string => Boolean(t))
-    .map((t) => normalize(t));
-
-  const jikanTitles = [
-    jikanAnime.title,
-    jikanAnime.title_english,
-    jikanAnime.title_japanese,
-    ...(jikanAnime.titles.map((t) => t.title) ?? []),
-    ...(jikanAnime.title_synonyms ?? []),
-  ]
-    .filter((t): t is string => Boolean(t))
-    .map((t) => normalize(t));
-
-  // Title matching: best match only
-  let bestTitleScore = 0;
-  for (const aTitle of anilistTitles) {
-    for (const jTitle of jikanTitles) {
-      if (aTitle === jTitle) {
-        bestTitleScore = Math.max(bestTitleScore, 50);
-        scoreRepartition[`titleExact`] = 50;
-      } else if (aTitle.includes(jTitle) || jTitle.includes(aTitle)) {
-        bestTitleScore = Math.max(bestTitleScore, 30);
-        scoreRepartition[`titlePartial`] = 30;
-      }
-    }
-  }
-  score += bestTitleScore;
-
-  // Year matching
-  if (jikanAnime.year && anilistMedia.seasonYear) {
-    const yearDiff = Math.abs(jikanAnime.year - anilistMedia.seasonYear);
-    if (yearDiff === 0) {
-      score += 20;
-      scoreRepartition['startDate'] = 20;
-    } else if (yearDiff === 1) {
-      score += 10;
-      scoreRepartition['startDate'] = 10;
-    }
-  }
-
-  // Episode count matching
-  if (jikanAnime.episodes && anilistMedia.episodes) {
-    const episodeDiff = Math.abs(jikanAnime.episodes - anilistMedia.episodes);
-    const tolerance = anilistMedia.episodes * 0.1;
-    if (episodeDiff === 0) {
-      score += 20;
-      scoreRepartition['episodeCount'] = 20;
-    } else if (episodeDiff <= tolerance) {
-      score += 10;
-      scoreRepartition['episodeCount'] = 10;
-    }
-  }
-
-  DEBUGS.JIKAN && console.log('[DEBUG] Score repartition:', scoreRepartition);
-  DEBUGS.JIKAN && console.log('[DEBUG] Total score', score);
-  DEBUGS.JIKAN && console.groupEnd();
-
-  return score;
-}
-// ============================================================================
-// React Query Hooks
-// ============================================================================
 
 // Hook 1: Find the MAL ID match
 function useJikanMatch(media: AnilistMedia | null) {
   return useQuery({
     queryKey: jikanQueryKeys.findMatch(media?.id),
-    queryFn: () => {
+    queryFn: async () => {
       if (!media) throw new Error('Media is required');
+
+      if (media.idMal) {
+        DEBUGS.JIKAN &&
+          console.log('[DEBUG] Using direct MAL ID:', media.idMal);
+
+        const anime = await jikanApi.fetchById(media.idMal, 'anime');
+
+        const matchResult: JikanMatchResult = {
+          anime,
+          episodeDuration: parseDurationToSeconds(anime.duration),
+          malId: media.idMal,
+        };
+
+        return matchResult;
+      }
+
+      DEBUGS.JIKAN && console.log('[DEBUG] No MAL ID, performing fuzzy search');
       return findJikanMatch(media);
     },
     enabled: Boolean(media),
@@ -262,6 +267,7 @@ export function useJikanEpisodes(
     episodesQuery.data?.pages.flatMap((page) => page.data) ?? [];
 
   return {
+    anime: matchQuery.data?.anime,
     episodes: allEpisodes,
     loading: matchQuery.isLoading || episodesQuery.isLoading,
     error: matchQuery.error || episodesQuery.error,

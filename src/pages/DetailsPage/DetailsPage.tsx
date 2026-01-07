@@ -1,5 +1,4 @@
-import { Box, CircularProgress, Stack, Typography } from '@mui/material';
-import { useMemo } from 'react';
+import { Box, Typography } from '@mui/material';
 import { useParams } from 'react-router-dom';
 import { AppMessage } from '../../components/AppMessage';
 import { useItems } from '../../contexts/ItemsProvider';
@@ -7,6 +6,7 @@ import { useFetchMedia } from '../../hooks/useFetchItem';
 import { Item } from '../../types/Item';
 import { DetailsContent } from './DetailsContent';
 import DetailsHeader from './DetailsHeader';
+import { BigLoader } from '../../components/BigLoader';
 
 export const DetailsPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -36,20 +36,16 @@ const Content = (props: ContentProps) => {
   const { deletedItemRef } = useItems();
   const { data, isLoading, error } = useFetchMedia(sourceItem);
 
-  const item = useMemo(() => {
-    const newItem: Item = {
-      ...sourceItem,
-      media: data ?? null,
-    };
-
-    return newItem;
-  }, [sourceItem, data]);
+  const item = {
+    ...sourceItem,
+    media: data ?? null,
+  };
 
   if (error) {
     if (id === deletedItemRef.current?.id) {
       return (
         <AppMessage>
-          <CircularProgress />
+          <BigLoader />
         </AppMessage>
       );
     }
@@ -59,16 +55,9 @@ const Content = (props: ContentProps) => {
 
   if (isLoading || !item) {
     return (
-      <Stack
-        sx={{
-          position: 'absolute',
-          inset: 0,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <CircularProgress size={'4rem'} />
-      </Stack>
+      <AppMessage>
+        <BigLoader />
+      </AppMessage>
     );
   }
 

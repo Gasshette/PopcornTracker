@@ -6,7 +6,7 @@ import {
   useMediaQuery,
   useTheme,
 } from '@mui/material';
-import { Item } from '../../types/Item';
+import { Category, Item } from '../../types/Item';
 import { useConfig } from '../../contexts/ConfigProvider';
 import { NoDataMessageDisplayer } from '../../components/NoDataMessageDisplayer';
 import { isAnilistMedia } from '../../utils';
@@ -15,7 +15,7 @@ import { Description } from './Description';
 import { StyledChip } from '../../components/StyledChip';
 import dayjs from 'dayjs';
 import { InfoOutline } from '@mui/icons-material';
-import { AnimeEpisodesDisplayer } from './AnimeEpisodesDisplayer';
+import { AnimeEpisodesDisplayer } from './AnimeEpisodesDisplayer/AnimeEpisodesDisplayer';
 
 interface DetailsContentProps {
   item: Item;
@@ -108,7 +108,6 @@ export const DetailsContent = (props: DetailsContentProps) => {
       (item.media.episodes || item.media.chapters) ? (
         <>
           <Typography variant={isUnderSm ? 'h6' : 'h5'}>
-            {item.media.episodes && `${item.media.episodes} episodes`}
             {item.media.chapters && `${item.media.chapters} chapters`}
           </Typography>
 
@@ -117,14 +116,14 @@ export const DetailsContent = (props: DetailsContentProps) => {
             gap={2}
             flexWrap={'wrap'}
           >
-            {isAnilistMedia(item.media) && (
+            {isAnilistMedia(item.media) && item.category === Category.Anime && (
               <AnimeEpisodesDisplayer media={item.media} item={item} />
             )}
           </Stack>
         </>
       ) : (
         <NoDataMessageDisplayer>
-          No data provided for this media :(
+          No data provided for this media
         </NoDataMessageDisplayer>
       )}
     </Stack>
